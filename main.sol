@@ -293,3 +293,62 @@ contract BleuTrk {
     // -------------------------------------------------------------------------
     function isInWindow(bytes32 segmentId) external view returns (bool) {
         TrailSegment storage seg = _segments[segmentId];
+        if (seg.recordedAtBlock == 0) return false;
+        return block.number <= seg.recordedAtBlock + windowBlocks;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: total segments (alias for clarity)
+    // -------------------------------------------------------------------------
+    function totalSegmentCount() external view returns (uint256) {
+        return totalSegments;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: segment ids length for enumeration
+    // -------------------------------------------------------------------------
+    function segmentIdsLength() external view returns (uint256) {
+        return _segmentIds.length;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: check existence without reverting
+    // -------------------------------------------------------------------------
+    function hasSegment(bytes32 segmentId) external view returns (bool) {
+        return _segments[segmentId].recordedAtBlock != 0;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: config snapshot (no storage write)
+    // -------------------------------------------------------------------------
+    function getConfig() external view returns (
+        address trailhead_,
+        address relayer_,
+        uint256 deployBlock_,
+        uint256 maxSegmentValue_,
+        uint256 minGapBlocks_,
+        uint256 windowBlocks_,
+        bool latticeFrozen_
+    ) {
+        return (
+            trailhead,
+            relayer,
+            deployBlock,
+            maxSegmentValue,
+            minGapBlocks,
+            windowBlocks,
+            latticeFrozen
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // Trailhead: seal multiple segments in one call
+    // -------------------------------------------------------------------------
+    function sealSegments(bytes32[] calldata segmentIds) external onlyTrailhead whenNotFrozen {
+        if (segmentIds.length > RELAY_BATCH_LIMIT) revert BTrk_RelayBatchTooLarge();
+        for (uint256 i = 0; i < segmentIds.length; ) {
+            bytes32 id = segmentIds[i];
+            TrailSegment storage seg = _segments[id];
+            if (seg.recordedAtBlock == 0) revert BTrk_SegmentNotFound();
+            if (!seg.sealed) {
+                seg.sealed = true;
