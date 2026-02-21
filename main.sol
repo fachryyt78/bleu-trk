@@ -765,3 +765,62 @@ contract BleuTrk {
     }
 
     // -------------------------------------------------------------------------
+    // View: last ordinal index whose segment was recorded at or before block
+    // -------------------------------------------------------------------------
+    function lastOrdinalAtOrBeforeBlock(uint256 atOrBeforeBlock) external view returns (uint256) {
+        for (uint256 i = totalSegments; i > 0; ) {
+            unchecked {
+                --i;
+            }
+            if (_segments[_segmentIds[i]].recordedAtBlock <= atOrBeforeBlock) {
+                return i + 1;
+            }
+        }
+        return 0;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: sum of segment values in ordinal range (gas-capped by VIEW_BATCH_MAX)
+    // -------------------------------------------------------------------------
+    function sumValuesInOrdinalRange(uint256 startOrdinal, uint256 endOrdinal)
+        external
+        view
+        returns (uint256 sum)
+    {
+        if (startOrdinal == 0 || endOrdinal < startOrdinal || endOrdinal > totalSegments) {
+            revert BTrk_InvalidOrdinalRange();
+        }
+        uint256 len = endOrdinal - startOrdinal + 1;
+        if (len > VIEW_BATCH_MAX) revert BTrk_ViewBatchTooLarge();
+        for (uint256 i = 0; i < len; ) {
+            sum += _segments[_segmentIds[startOrdinal + i - 1]].value;
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // View: weighted sum (value * weight) in ordinal range; weight 0 treated as 1
+    // -------------------------------------------------------------------------
+    function weightedSumInOrdinalRange(uint256 startOrdinal, uint256 endOrdinal)
+        external
+        view
+        returns (uint256 weightedSum)
+    {
+        if (startOrdinal == 0 || endOrdinal < startOrdinal || endOrdinal > totalSegments) {
+            revert BTrk_InvalidOrdinalRange();
+        }
+        uint256 len = endOrdinal - startOrdinal + 1;
+        if (len > VIEW_BATCH_MAX) revert BTrk_ViewBatchTooLarge();
+        for (uint256 i = 0; i < len; ) {
+            bytes32 id = _segmentIds[startOrdinal + i - 1];
+            uint64 w = _segmentWeight[id];
+            uint256 v = _segments[id].value;
+            weightedSum += v * (w == 0 ? 1 : uint256(w));
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
