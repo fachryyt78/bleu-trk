@@ -588,3 +588,62 @@ contract BleuTrk {
     // -------------------------------------------------------------------------
     // View: trail id for a segment (or zero if none)
     // -------------------------------------------------------------------------
+    function getTrailForSegment(bytes32 segmentId) external view returns (bytes32) {
+        return _segmentToTrail[segmentId];
+    }
+
+    // -------------------------------------------------------------------------
+    // View: tag for a segment
+    // -------------------------------------------------------------------------
+    function getSegmentTag(bytes32 segmentId) external view returns (bytes32) {
+        return _segmentTag[segmentId];
+    }
+
+    // -------------------------------------------------------------------------
+    // View: weight for a segment
+    // -------------------------------------------------------------------------
+    function getSegmentWeight(bytes32 segmentId) external view returns (uint64) {
+        return _segmentWeight[segmentId];
+    }
+
+    // -------------------------------------------------------------------------
+    // View: chain hash for a segment (for external verification)
+    // -------------------------------------------------------------------------
+    function getChainHash(bytes32 segmentId) external view returns (bytes32) {
+        if (_segments[segmentId].recordedAtBlock == 0) revert BTrk_SegmentNotFound();
+        return _previousChainHash[segmentId];
+    }
+
+    // -------------------------------------------------------------------------
+    // View: cumulative chain hash up to and including ordinal (hash of last link)
+    // -------------------------------------------------------------------------
+    function getChainHashAtOrdinal(uint256 ordinalIndex) external view returns (bytes32) {
+        if (ordinalIndex == 0 || ordinalIndex > totalSegments) revert BTrk_SegmentNotFound();
+        return _previousChainHash[_segmentIds[ordinalIndex - 1]];
+    }
+
+    // -------------------------------------------------------------------------
+    // View: epoch snapshot by index
+    // -------------------------------------------------------------------------
+    function getEpoch(uint256 epochIndex) external view returns (
+        uint256 atBlock,
+        uint256 atSegmentCount,
+        bytes32 fingerprint,
+        uint256 sealedAtEpoch
+    ) {
+        if (epochIndex >= currentEpochIndex) revert BTrk_InvalidEpochIndex();
+        EpochSnapshot storage e = _epochs[epochIndex];
+        return (e.atBlock, e.atSegmentCount, e.fingerprint, e.sealedAtEpoch);
+    }
+
+    // -------------------------------------------------------------------------
+    // View: total cumulative value of all segments
+    // -------------------------------------------------------------------------
+    function getCumulativeValue() external view returns (uint256) {
+        return cumulativeValue;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: full segment + tag + weight + trail + chain hash
+    // -------------------------------------------------------------------------
+    function getSegmentFull(bytes32 segmentId) external view returns (
