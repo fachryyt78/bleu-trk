@@ -234,3 +234,62 @@ contract BleuTrk {
             cumulativeValue += val;
             _updateChainHash(id, val, totalSegments);
             _maybeRecordEpoch(totalSegments, block.number);
+            emit SegmentRecorded(id, val, totalSegments, block.number);
+            unchecked {
+                ++i;
+            }
+        }
+        _relayCount[msg.sender] += segmentIds.length;
+        emit RelayerUsed(msg.sender, _relayCount[msg.sender]);
+    }
+
+    // -------------------------------------------------------------------------
+    // View: get segment by id
+    // -------------------------------------------------------------------------
+    function getSegment(bytes32 segmentId) external view returns (
+        uint256 value,
+        uint256 recordedAtBlock,
+        uint256 ordinalIndex,
+        bool sealed
+    ) {
+        TrailSegment storage seg = _segments[segmentId];
+        if (seg.recordedAtBlock == 0) revert BTrk_SegmentNotFound();
+        return (seg.value, seg.recordedAtBlock, seg.ordinalIndex, seg.sealed);
+    }
+
+    // -------------------------------------------------------------------------
+    // View: segment id by ordinal index (1-based)
+    // -------------------------------------------------------------------------
+    function getSegmentIdByOrdinal(uint256 ordinalIndex) external view returns (bytes32) {
+        if (ordinalIndex == 0 || ordinalIndex > totalSegments) revert BTrk_SegmentNotFound();
+        return _segmentIds[ordinalIndex - 1];
+    }
+
+    // -------------------------------------------------------------------------
+    // View: relay count for an address
+    // -------------------------------------------------------------------------
+    function getRelayCount(address account) external view returns (uint256) {
+        return _relayCount[account];
+    }
+
+    // -------------------------------------------------------------------------
+    // View: lattice fingerprint (hash of domain + totals)
+    // -------------------------------------------------------------------------
+    function latticeFingerprint() external view returns (bytes32) {
+        return keccak256(
+            abi.encodePacked(
+                latticeDomain,
+                totalSegments,
+                sealedCount,
+                deployBlock,
+                deployTimestamp,
+                latticeFrozen
+            )
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // View: whether a segment is within the current window (last N blocks)
+    // -------------------------------------------------------------------------
+    function isInWindow(bytes32 segmentId) external view returns (bool) {
+        TrailSegment storage seg = _segments[segmentId];
