@@ -470,3 +470,62 @@ contract BleuTrk {
     // -------------------------------------------------------------------------
     function setSegmentWeight(bytes32 segmentId, uint64 weight) external onlyTrailhead whenNotFrozen {
         if (_segments[segmentId].recordedAtBlock == 0) revert BTrk_SegmentNotFound();
+        if (weight > MAX_WEIGHT) revert BTrk_WeightExceedsMax();
+        _segmentWeight[segmentId] = weight;
+        emit SegmentWeightSet(segmentId, weight);
+    }
+
+    // -------------------------------------------------------------------------
+    // Trailhead: batch attach segments to a trail
+    // -------------------------------------------------------------------------
+    function attachSegmentsToTrail(bytes32[] calldata segmentIds, bytes32 trailId)
+        external
+        onlyTrailhead
+        whenNotFrozen
+    {
+        if (segmentIds.length > RELAY_BATCH_LIMIT) revert BTrk_RelayBatchTooLarge();
+        if (_trails[trailId].createdAtBlock == 0) revert BTrk_TrailNotFound();
+        if (_trails[trailId].locked) revert BTrk_TrailLocked();
+        TrailInfo storage tr = _trails[trailId];
+        for (uint256 i = 0; i < segmentIds.length; ) {
+            bytes32 sid = segmentIds[i];
+            if (_segments[sid].recordedAtBlock == 0) revert BTrk_SegmentNotFound();
+            if (_segmentToTrail[sid] != bytes32(0)) revert BTrk_SegmentAlreadyRecorded();
+            if (tr.segmentCount >= MAX_TRAIL_SEGMENTS) revert BTrk_TrailSegmentLimit();
+            _segmentToTrail[sid] = trailId;
+            tr.segmentCount += 1;
+            tr.totalValue += _segments[sid].value;
+            _trailSegmentIds[trailId].push(sid);
+            emit SegmentAttachedToTrail(sid, trailId);
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Internal: append to hash chain (previous hash per segment)
+    // -------------------------------------------------------------------------
+    function _updateChainHash(bytes32 segmentId, uint256 value, uint256 ordinalIndex) private {
+        bytes32 prev = totalSegments == 1 ? bytes32(0) : _previousChainHash[_segmentIds[totalSegments - 2]];
+        bytes32 link = keccak256(abi.encodePacked(prev, segmentId, value, ordinalIndex, block.number));
+        _previousChainHash[segmentId] = link;
+        emit ChainHashUpdated(segmentId, link);
+    }
+
+    // -------------------------------------------------------------------------
+    // Internal: record epoch snapshot every EPOCH_EVERY_N_SEGMENTS
+    // -------------------------------------------------------------------------
+    function _maybeRecordEpoch(uint256 segmentCount, uint256 atBlock) private {
+        if (segmentCount % EPOCH_EVERY_N_SEGMENTS != 0) return;
+        uint256 epochIdx = currentEpochIndex;
+        bytes32 fp = keccak256(
+            abi.encodePacked(
+                latticeDomain,
+                segmentCount,
+                sealedCount,
+                cumulativeValue,
+                atBlock,
+                epochIdx
+            )
+        );
