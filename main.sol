@@ -411,3 +411,62 @@ contract BleuTrk {
     function getDeployContext() external view returns (uint256 blockNum, uint256 timestamp) {
         return (deployBlock, deployTimestamp);
     }
+
+    // -------------------------------------------------------------------------
+    // Trailhead: create a named trail
+    // -------------------------------------------------------------------------
+    function createTrail(bytes32 trailId) external onlyTrailhead whenNotFrozen {
+        if (trailId == bytes32(0)) revert BTrk_ZeroSegmentId();
+        if (_trails[trailId].createdAtBlock != 0) revert BTrk_TrailAlreadyExists();
+        _trails[trailId] = TrailInfo({
+            trailId: trailId,
+            createdAtBlock: block.number,
+            segmentCount: 0,
+            totalValue: 0,
+            locked: false
+        });
+        _trailIds.push(trailId);
+        totalTrails += 1;
+        emit TrailCreated(trailId, block.number);
+    }
+
+    // -------------------------------------------------------------------------
+    // Trailhead: attach a segment to a trail (segment must exist, trail must not be locked)
+    // -------------------------------------------------------------------------
+    function attachSegmentToTrail(bytes32 segmentId, bytes32 trailId) external onlyTrailhead whenNotFrozen {
+        if (_segments[segmentId].recordedAtBlock == 0) revert BTrk_SegmentNotFound();
+        if (_trails[trailId].createdAtBlock == 0) revert BTrk_TrailNotFound();
+        if (_trails[trailId].locked) revert BTrk_TrailLocked();
+        if (_segmentToTrail[segmentId] != bytes32(0)) revert BTrk_SegmentAlreadyRecorded();
+        TrailInfo storage tr = _trails[trailId];
+        if (tr.segmentCount >= MAX_TRAIL_SEGMENTS) revert BTrk_TrailSegmentLimit();
+        _segmentToTrail[segmentId] = trailId;
+        tr.segmentCount += 1;
+        tr.totalValue += _segments[segmentId].value;
+        _trailSegmentIds[trailId].push(segmentId);
+        emit SegmentAttachedToTrail(segmentId, trailId);
+    }
+
+    // -------------------------------------------------------------------------
+    // Trailhead: lock a trail (no more segments can be attached)
+    // -------------------------------------------------------------------------
+    function lockTrail(bytes32 trailId) external onlyTrailhead whenNotFrozen {
+        if (_trails[trailId].createdAtBlock == 0) revert BTrk_TrailNotFound();
+        _trails[trailId].locked = true;
+        emit TrailLocked(trailId, block.number);
+    }
+
+    // -------------------------------------------------------------------------
+    // Trailhead: set optional tag for a segment
+    // -------------------------------------------------------------------------
+    function setSegmentTag(bytes32 segmentId, bytes32 tag) external onlyTrailhead whenNotFrozen {
+        if (_segments[segmentId].recordedAtBlock == 0) revert BTrk_SegmentNotFound();
+        _segmentTag[segmentId] = tag;
+        emit SegmentTagged(segmentId, tag);
+    }
+
+    // -------------------------------------------------------------------------
+    // Trailhead: set optional weight for a segment (for weighted proofs)
+    // -------------------------------------------------------------------------
+    function setSegmentWeight(bytes32 segmentId, uint64 weight) external onlyTrailhead whenNotFrozen {
+        if (_segments[segmentId].recordedAtBlock == 0) revert BTrk_SegmentNotFound();
