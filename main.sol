@@ -352,3 +352,62 @@ contract BleuTrk {
             if (seg.recordedAtBlock == 0) revert BTrk_SegmentNotFound();
             if (!seg.sealed) {
                 seg.sealed = true;
+                sealedCount += 1;
+                emit SegmentSealed(id, block.number);
+            }
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // View: count of unsealed segments
+    // -------------------------------------------------------------------------
+    function unsealedCount() external view returns (uint256) {
+        return totalSegments - sealedCount;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: segment values in ordinal range [start, end] (1-based, inclusive)
+    // -------------------------------------------------------------------------
+    function getValuesInOrdinalRange(uint256 startOrdinal, uint256 endOrdinal)
+        external
+        view
+        returns (uint256[] memory values)
+    {
+        if (startOrdinal == 0 || endOrdinal < startOrdinal || endOrdinal > totalSegments) {
+            revert BTrk_SegmentNotFound();
+        }
+        uint256 len = endOrdinal - startOrdinal + 1;
+        if (len > RELAY_BATCH_LIMIT) revert BTrk_RelayBatchTooLarge();
+        values = new uint256[](len);
+        for (uint256 i = 0; i < len; ) {
+            values[i] = _segments[_segmentIds[startOrdinal + i - 1]].value;
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // View: block number of the most recently recorded segment
+    // -------------------------------------------------------------------------
+    function lastRecordedBlock() external view returns (uint256) {
+        if (totalSegments == 0) return 0;
+        return _segments[_segmentIds[totalSegments - 1]].recordedAtBlock;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: lattice domain (for external verification)
+    // -------------------------------------------------------------------------
+    function getLatticeDomain() external view returns (bytes32) {
+        return latticeDomain;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: deploy context (chain and time)
+    // -------------------------------------------------------------------------
+    function getDeployContext() external view returns (uint256 blockNum, uint256 timestamp) {
+        return (deployBlock, deployTimestamp);
+    }
