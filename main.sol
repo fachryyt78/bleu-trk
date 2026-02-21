@@ -529,3 +529,62 @@ contract BleuTrk {
                 epochIdx
             )
         );
+        _epochs[epochIdx] = EpochSnapshot({
+            atBlock: atBlock,
+            atSegmentCount: segmentCount,
+            fingerprint: fp,
+            sealedAtEpoch: sealedCount
+        });
+        currentEpochIndex = epochIdx + 1;
+        emit EpochRecorded(epochIdx, segmentCount, fp);
+    }
+
+    // -------------------------------------------------------------------------
+    // View: get trail info
+    // -------------------------------------------------------------------------
+    function getTrail(bytes32 trailId) external view returns (
+        uint256 createdAtBlock,
+        uint256 segmentCount,
+        uint256 totalValue,
+        bool locked
+    ) {
+        TrailInfo storage tr = _trails[trailId];
+        if (tr.createdAtBlock == 0) revert BTrk_TrailNotFound();
+        return (tr.createdAtBlock, tr.segmentCount, tr.totalValue, tr.locked);
+    }
+
+    // -------------------------------------------------------------------------
+    // View: trail id by index (0-based)
+    // -------------------------------------------------------------------------
+    function getTrailIdByIndex(uint256 index) external view returns (bytes32) {
+        if (index >= totalTrails) revert BTrk_TrailNotFound();
+        return _trailIds[index];
+    }
+
+    // -------------------------------------------------------------------------
+    // View: segment ids in a trail (paginated)
+    // -------------------------------------------------------------------------
+    function getTrailSegmentIds(bytes32 trailId, uint256 offset, uint256 limit)
+        external
+        view
+        returns (bytes32[] memory segmentIds)
+    {
+        if (_trails[trailId].createdAtBlock == 0) revert BTrk_TrailNotFound();
+        bytes32[] storage arr = _trailSegmentIds[trailId];
+        if (limit > VIEW_BATCH_MAX) revert BTrk_ViewBatchTooLarge();
+        if (offset >= arr.length) return new bytes32[](0);
+        uint256 end = offset + limit;
+        if (end > arr.length) end = arr.length;
+        uint256 len = end - offset;
+        segmentIds = new bytes32[](len);
+        for (uint256 i = 0; i < len; ) {
+            segmentIds[i] = arr[offset + i];
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // View: trail id for a segment (or zero if none)
+    // -------------------------------------------------------------------------
