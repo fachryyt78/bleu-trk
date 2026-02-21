@@ -57,3 +57,62 @@ contract BleuTrk {
     mapping(bytes32 => bytes32) private _previousChainHash;
 
     // -------------------------------------------------------------------------
+    // Epochs: periodic snapshots for fingerprinting
+    // -------------------------------------------------------------------------
+    struct EpochSnapshot {
+        uint256 atBlock;
+        uint256 atSegmentCount;
+        bytes32 fingerprint;
+        uint256 sealedAtEpoch;
+    }
+    mapping(uint256 => EpochSnapshot) private _epochs;
+    uint256 public currentEpochIndex;
+    uint256 public cumulativeValue;
+
+    // -------------------------------------------------------------------------
+    // Constants (distinct per-contract)
+    // -------------------------------------------------------------------------
+    uint256 public constant SEGMENT_CAP = 2097152;
+    uint256 public constant RELAY_BATCH_LIMIT = 47;
+    uint256 public constant FROST_DELAY_BLOCKS = 12;
+    uint256 public constant EPOCH_EVERY_N_SEGMENTS = 64;
+    uint256 public constant MAX_TRAIL_SEGMENTS = 512;
+    uint256 public constant MAX_WEIGHT = 0xFFFFFFFFFFFFFFFF;
+    uint256 public constant VIEW_BATCH_MAX = 128;
+
+    // -------------------------------------------------------------------------
+    // Errors (unique names and semantics)
+    // -------------------------------------------------------------------------
+    error BTrk_NotTrailhead();
+    error BTrk_NotRelayer();
+    error BTrk_SegmentAlreadyRecorded();
+    error BTrk_ValueExceedsCap();
+    error BTrk_GapTooShort();
+    error BTrk_LatticeFrozen();
+    error BTrk_ZeroSegmentId();
+    error BTrk_AlreadySealed();
+    error BTrk_SegmentNotFound();
+    error BTrk_RelayBatchTooLarge();
+    error BTrk_FrostDelayActive();
+    error BTrk_ZeroAddress();
+    error BTrk_TrailNotFound();
+    error BTrk_TrailAlreadyExists();
+    error BTrk_TrailLocked();
+    error BTrk_SegmentNotInTrail();
+    error BTrk_TrailSegmentLimit();
+    error BTrk_WeightExceedsMax();
+    error BTrk_InvalidOrdinalRange();
+    error BTrk_ViewBatchTooLarge();
+    error BTrk_InvalidEpochIndex();
+
+    // -------------------------------------------------------------------------
+    // Events (unique signatures)
+    // -------------------------------------------------------------------------
+    event SegmentRecorded(
+        bytes32 indexed segmentId,
+        uint256 value,
+        uint256 ordinalIndex,
+        uint256 atBlock
+    );
+    event SegmentSealed(bytes32 indexed segmentId, uint256 atBlock);
+    event LatticeFrozen(uint256 atBlock);
