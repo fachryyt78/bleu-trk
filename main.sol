@@ -175,3 +175,62 @@ contract BleuTrk {
         TrailSegment storage seg = _segments[segmentId];
         if (seg.recordedAtBlock != 0) revert BTrk_SegmentAlreadyRecorded();
         if (totalSegments > 0) {
+            uint256 lastOrdinal = _segments[_segmentIds[totalSegments - 1]].ordinalIndex;
+            if (block.number < deployBlock + minGapBlocks) revert BTrk_GapTooShort();
+        }
+        totalSegments += 1;
+        seg.value = value;
+        seg.recordedAtBlock = block.number;
+        seg.ordinalIndex = totalSegments;
+        _segmentIds.push(segmentId);
+        cumulativeValue += value;
+        _updateChainHash(segmentId, value, totalSegments);
+        _maybeRecordEpoch(totalSegments, block.number);
+        emit SegmentRecorded(segmentId, value, totalSegments, block.number);
+    }
+
+    // -------------------------------------------------------------------------
+    // Trailhead: seal a segment (no further changes)
+    // -------------------------------------------------------------------------
+    function sealSegment(bytes32 segmentId) external onlyTrailhead whenNotFrozen {
+        TrailSegment storage seg = _segments[segmentId];
+        if (seg.recordedAtBlock == 0) revert BTrk_SegmentNotFound();
+        if (seg.sealed) revert BTrk_AlreadySealed();
+        seg.sealed = true;
+        sealedCount += 1;
+        emit SegmentSealed(segmentId, block.number);
+    }
+
+    // -------------------------------------------------------------------------
+    // Trailhead: freeze entire lattice (irreversible)
+    // -------------------------------------------------------------------------
+    function freezeLattice() external onlyTrailhead whenNotFrozen {
+        if (block.number < deployBlock + FROST_DELAY_BLOCKS) revert BTrk_FrostDelayActive();
+        latticeFrozen = true;
+        emit LatticeFrozen(block.number);
+    }
+
+    // -------------------------------------------------------------------------
+    // Relayer: batch-record segments (within cap)
+    // -------------------------------------------------------------------------
+    function relaySegments(
+        bytes32[] calldata segmentIds,
+        uint256[] calldata values
+    ) external onlyRelayer whenNotFrozen {
+        if (segmentIds.length > RELAY_BATCH_LIMIT) revert BTrk_RelayBatchTooLarge();
+        if (segmentIds.length != values.length) revert BTrk_RelayBatchTooLarge();
+        for (uint256 i = 0; i < segmentIds.length; ) {
+            bytes32 id = segmentIds[i];
+            uint256 val = values[i];
+            if (id == bytes32(0)) revert BTrk_ZeroSegmentId();
+            if (val > maxSegmentValue) revert BTrk_ValueExceedsCap();
+            TrailSegment storage seg = _segments[id];
+            if (seg.recordedAtBlock != 0) revert BTrk_SegmentAlreadyRecorded();
+            totalSegments += 1;
+            seg.value = val;
+            seg.recordedAtBlock = block.number;
+            seg.ordinalIndex = totalSegments;
+            _segmentIds.push(id);
+            cumulativeValue += val;
+            _updateChainHash(id, val, totalSegments);
+            _maybeRecordEpoch(totalSegments, block.number);
