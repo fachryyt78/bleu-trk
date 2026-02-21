@@ -824,3 +824,62 @@ contract BleuTrk {
         }
     }
 
+    // -------------------------------------------------------------------------
+    // View: whether trail exists
+    // -------------------------------------------------------------------------
+    function hasTrail(bytes32 trailId) external view returns (bool) {
+        return _trails[trailId].createdAtBlock != 0;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: trail count
+    // -------------------------------------------------------------------------
+    function trailCount() external view returns (uint256) {
+        return totalTrails;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: all trail ids (paginated)
+    // -------------------------------------------------------------------------
+    function getTrailIds(uint256 offset, uint256 limit) external view returns (bytes32[] memory trailIds) {
+        if (limit > VIEW_BATCH_MAX) revert BTrk_ViewBatchTooLarge();
+        if (offset >= totalTrails) return new bytes32[](0);
+        uint256 end = offset + limit;
+        if (end > totalTrails) end = totalTrails;
+        uint256 len = end - offset;
+        trailIds = new bytes32[](len);
+        for (uint256 i = 0; i < len; ) {
+            trailIds[i] = _trailIds[offset + i];
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // View: lattice fingerprint at a specific epoch (if exists)
+    // -------------------------------------------------------------------------
+    function latticeFingerprintAtEpoch(uint256 epochIndex) external view returns (bytes32) {
+        if (epochIndex >= currentEpochIndex) revert BTrk_InvalidEpochIndex();
+        return _epochs[epochIndex].fingerprint;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: block number at which epoch was recorded
+    // -------------------------------------------------------------------------
+    function getEpochBlock(uint256 epochIndex) external view returns (uint256) {
+        if (epochIndex >= currentEpochIndex) revert BTrk_InvalidEpochIndex();
+        return _epochs[epochIndex].atBlock;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: segment count at epoch
+    // -------------------------------------------------------------------------
+    function getEpochSegmentCount(uint256 epochIndex) external view returns (uint256) {
+        if (epochIndex >= currentEpochIndex) revert BTrk_InvalidEpochIndex();
+        return _epochs[epochIndex].atSegmentCount;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: verify chain link for a segment (recompute and compare)
+    // -------------------------------------------------------------------------
