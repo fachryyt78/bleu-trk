@@ -116,3 +116,62 @@ contract BleuTrk {
     );
     event SegmentSealed(bytes32 indexed segmentId, uint256 atBlock);
     event LatticeFrozen(uint256 atBlock);
+    event RelayerUsed(address indexed relayer, uint256 newCount);
+    event TrailheadTransferred(address indexed previous, address indexed next);
+    event TrailCreated(bytes32 indexed trailId, uint256 atBlock);
+    event SegmentAttachedToTrail(bytes32 indexed segmentId, bytes32 indexed trailId);
+    event TrailLocked(bytes32 indexed trailId, uint256 atBlock);
+    event SegmentTagged(bytes32 indexed segmentId, bytes32 tag);
+    event SegmentWeightSet(bytes32 indexed segmentId, uint64 weight);
+    event EpochRecorded(uint256 indexed epochIndex, uint256 atSegmentCount, bytes32 fingerprint);
+    event ChainHashUpdated(bytes32 indexed segmentId, bytes32 previousChainHash);
+
+    // -------------------------------------------------------------------------
+    // Constructor (no args; all populated)
+    // -------------------------------------------------------------------------
+    constructor() {
+        trailhead = msg.sender;
+        relayer = msg.sender;
+        deployBlock = block.number;
+        deployTimestamp = block.timestamp;
+        latticeDomain = keccak256(
+            abi.encodePacked(
+                block.chainid,
+                address(this),
+                block.prevrandao,
+                block.timestamp,
+                "BleuTrk_Lattice_v1"
+            )
+        );
+        maxSegmentValue = 1048576;
+        minGapBlocks = 5;
+        windowBlocks = 256;
+    }
+
+    // -------------------------------------------------------------------------
+    // Modifiers
+    // -------------------------------------------------------------------------
+    modifier onlyTrailhead() {
+        if (msg.sender != trailhead) revert BTrk_NotTrailhead();
+        _;
+    }
+
+    modifier onlyRelayer() {
+        if (msg.sender != relayer) revert BTrk_NotRelayer();
+        _;
+    }
+
+    modifier whenNotFrozen() {
+        if (latticeFrozen) revert BTrk_LatticeFrozen();
+        _;
+    }
+
+    // -------------------------------------------------------------------------
+    // Trailhead: record a single segment
+    // -------------------------------------------------------------------------
+    function recordSegment(bytes32 segmentId, uint256 value) external onlyTrailhead whenNotFrozen {
+        if (segmentId == bytes32(0)) revert BTrk_ZeroSegmentId();
+        if (value > maxSegmentValue) revert BTrk_ValueExceedsCap();
+        TrailSegment storage seg = _segments[segmentId];
+        if (seg.recordedAtBlock != 0) revert BTrk_SegmentAlreadyRecorded();
+        if (totalSegments > 0) {
