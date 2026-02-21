@@ -706,3 +706,62 @@ contract BleuTrk {
     {
         if (startOrdinal == 0 || endOrdinal < startOrdinal || endOrdinal > totalSegments) {
             revert BTrk_InvalidOrdinalRange();
+        }
+        uint256 len = endOrdinal - startOrdinal + 1;
+        if (len > VIEW_BATCH_MAX) revert BTrk_ViewBatchTooLarge();
+        ids = new bytes32[](len);
+        for (uint256 i = 0; i < len; ) {
+            ids[i] = _segmentIds[startOrdinal + i - 1];
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // View: segments recorded in block range [fromBlock, toBlock] (inclusive)
+    // -------------------------------------------------------------------------
+    function getSegmentIdsInBlockRange(uint256 fromBlock, uint256 toBlock)
+        external
+        view
+        returns (bytes32[] memory ids)
+    {
+        if (fromBlock > toBlock) return new bytes32[](0);
+        uint256 cap = totalSegments < VIEW_BATCH_MAX ? totalSegments : VIEW_BATCH_MAX;
+        bytes32[] memory temp = new bytes32[](cap);
+        uint256 count = 0;
+        for (uint256 i = 0; i < totalSegments && count < cap; ) {
+            TrailSegment storage seg = _segments[_segmentIds[i]];
+            if (seg.recordedAtBlock >= fromBlock && seg.recordedAtBlock <= toBlock) {
+                temp[count] = _segmentIds[i];
+                count += 1;
+            }
+            unchecked {
+                ++i;
+            }
+        }
+        ids = new bytes32[](count);
+        for (uint256 j = 0; j < count; ) {
+            ids[j] = temp[j];
+            unchecked {
+                ++j;
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // View: first ordinal index whose segment was recorded at or after block
+    // -------------------------------------------------------------------------
+    function firstOrdinalAtOrAfterBlock(uint256 atOrAfterBlock) external view returns (uint256) {
+        for (uint256 i = 0; i < totalSegments; ) {
+            if (_segments[_segmentIds[i]].recordedAtBlock >= atOrAfterBlock) {
+                return i + 1;
+            }
+            unchecked {
+                ++i;
+            }
+        }
+        return 0;
+    }
+
+    // -------------------------------------------------------------------------
