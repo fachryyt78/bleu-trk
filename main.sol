@@ -647,3 +647,62 @@ contract BleuTrk {
     // View: full segment + tag + weight + trail + chain hash
     // -------------------------------------------------------------------------
     function getSegmentFull(bytes32 segmentId) external view returns (
+        uint256 value,
+        uint256 recordedAtBlock,
+        uint256 ordinalIndex,
+        bool sealed,
+        bytes32 tag,
+        uint64 weight,
+        bytes32 trailId,
+        bytes32 chainHash
+    ) {
+        TrailSegment storage seg = _segments[segmentId];
+        if (seg.recordedAtBlock == 0) revert BTrk_SegmentNotFound();
+        return (
+            seg.value,
+            seg.recordedAtBlock,
+            seg.ordinalIndex,
+            seg.sealed,
+            _segmentTag[segmentId],
+            _segmentWeight[segmentId],
+            _segmentToTrail[segmentId],
+            _previousChainHash[segmentId]
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // View: batch get segments (ids => value, block, ordinal, sealed)
+    // -------------------------------------------------------------------------
+    function getSegmentBatch(bytes32[] calldata segmentIds) external view returns (
+        uint256[] memory values,
+        uint256[] memory recordedAtBlocks,
+        uint256[] memory ordinalIndices,
+        bool[] memory sealedFlags
+    ) {
+        if (segmentIds.length > VIEW_BATCH_MAX) revert BTrk_ViewBatchTooLarge();
+        values = new uint256[](segmentIds.length);
+        recordedAtBlocks = new uint256[](segmentIds.length);
+        ordinalIndices = new uint256[](segmentIds.length);
+        sealedFlags = new bool[](segmentIds.length);
+        for (uint256 i = 0; i < segmentIds.length; ) {
+            TrailSegment storage seg = _segments[segmentIds[i]];
+            values[i] = seg.value;
+            recordedAtBlocks[i] = seg.recordedAtBlock;
+            ordinalIndices[i] = seg.ordinalIndex;
+            sealedFlags[i] = seg.sealed;
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // View: segment ids in ordinal range [start, end] (1-based inclusive)
+    // -------------------------------------------------------------------------
+    function getSegmentIdsInOrdinalRange(uint256 startOrdinal, uint256 endOrdinal)
+        external
+        view
+        returns (bytes32[] memory ids)
+    {
+        if (startOrdinal == 0 || endOrdinal < startOrdinal || endOrdinal > totalSegments) {
+            revert BTrk_InvalidOrdinalRange();
