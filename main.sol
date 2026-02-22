@@ -1473,3 +1473,62 @@ contract BleuTrk {
     // View: is lattice frozen
     // -------------------------------------------------------------------------
     function isLatticeFrozen() external view returns (bool) {
+        return latticeFrozen;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: constants (for external clients)
+    // -------------------------------------------------------------------------
+    function getConstants() external pure returns (
+        uint256 segmentCap,
+        uint256 relayBatchLimit,
+        uint256 frostDelayBlocks,
+        uint256 epochEveryNSegments,
+        uint256 maxTrailSegments,
+        uint256 viewBatchMax
+    ) {
+        return (
+            SEGMENT_CAP,
+            RELAY_BATCH_LIMIT,
+            FROST_DELAY_BLOCKS,
+            EPOCH_EVERY_N_SEGMENTS,
+            MAX_TRAIL_SEGMENTS,
+            VIEW_BATCH_MAX
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // View: chain hash chain tip (hash of last segment in chain)
+    // -------------------------------------------------------------------------
+    function getChainTipHash() external view returns (bytes32) {
+        if (totalSegments == 0) return bytes32(0);
+        return _previousChainHash[_segmentIds[totalSegments - 1]];
+    }
+
+    // -------------------------------------------------------------------------
+    // View: verify that a list of segment ids forms a contiguous ordinal range
+    // -------------------------------------------------------------------------
+    function areContiguousOrdinals(bytes32[] calldata segmentIds) external view returns (bool) {
+        if (segmentIds.length == 0 || segmentIds.length > VIEW_BATCH_MAX) return false;
+        uint256 expectedOrdinal = _segments[segmentIds[0]].ordinalIndex;
+        if (expectedOrdinal == 0) return false;
+        for (uint256 i = 0; i < segmentIds.length; ) {
+            if (_segments[segmentIds[i]].ordinalIndex != expectedOrdinal + i) return false;
+            unchecked {
+                ++i;
+            }
+        }
+        return true;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: ordinal index of first segment in a trail (0 if trail empty or not found)
+    // -------------------------------------------------------------------------
+    function getTrailFirstOrdinal(bytes32 trailId) external view returns (uint256) {
+        if (_trails[trailId].createdAtBlock == 0 || _trailSegmentIds[trailId].length == 0) return 0;
+        return _segments[_trailSegmentIds[trailId][0]].ordinalIndex;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: ordinal index of last segment in a trail (0 if trail empty or not found)
+    // -------------------------------------------------------------------------
