@@ -1532,3 +1532,62 @@ contract BleuTrk {
     // -------------------------------------------------------------------------
     // View: ordinal index of last segment in a trail (0 if trail empty or not found)
     // -------------------------------------------------------------------------
+    function getTrailLastOrdinal(bytes32 trailId) external view returns (uint256) {
+        bytes32[] storage arr = _trailSegmentIds[trailId];
+        if (_trails[trailId].createdAtBlock == 0 || arr.length == 0) return 0;
+        return _segments[arr[arr.length - 1]].ordinalIndex;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: window blocks (how many blocks a segment is "in window")
+    // -------------------------------------------------------------------------
+    function getWindowBlocks() external view returns (uint256) {
+        return windowBlocks;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: min gap blocks (enforced between first segments)
+    // -------------------------------------------------------------------------
+    function getMinGapBlocks() external view returns (uint256) {
+        return minGapBlocks;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: max segment value allowed
+    // -------------------------------------------------------------------------
+    function getMaxSegmentValue() external view returns (uint256) {
+        return maxSegmentValue;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: deploy timestamp
+    // -------------------------------------------------------------------------
+    function getDeployTimestamp() external view returns (uint256) {
+        return deployTimestamp;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: relay batch limit (max segments per relay call)
+    // -------------------------------------------------------------------------
+    function getRelayBatchLimit() external view returns (uint256) {
+        return RELAY_BATCH_LIMIT;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: epoch every N segments
+    // -------------------------------------------------------------------------
+    function getEpochEveryNSegments() external view returns (uint256) {
+        return EPOCH_EVERY_N_SEGMENTS;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: trail locked or not
+    // -------------------------------------------------------------------------
+    function isTrailLocked(bytes32 trailId) external view returns (bool) {
+        if (_trails[trailId].createdAtBlock == 0) revert BTrk_TrailNotFound();
+        return _trails[trailId].locked;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: trail created block
+    // -------------------------------------------------------------------------
