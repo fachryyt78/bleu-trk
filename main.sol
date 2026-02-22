@@ -1119,3 +1119,62 @@ contract BleuTrk {
             unchecked {
                 ++i;
             }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // View: full segment data for ordinal range (value, block, ordinal, sealed, tag, weight, trail, chainHash)
+    // -------------------------------------------------------------------------
+    function getFullSegmentsInOrdinalRange(uint256 startOrdinal, uint256 endOrdinal) external view returns (
+        bytes32[] memory segmentIds_,
+        uint256[] memory values,
+        uint256[] memory recordedAtBlocks,
+        uint256[] memory ordinalIndices,
+        bool[] memory sealedFlags,
+        bytes32[] memory tags,
+        uint64[] memory weights,
+        bytes32[] memory trailIds,
+        bytes32[] memory chainHashes
+    ) {
+        if (startOrdinal == 0 || endOrdinal < startOrdinal || endOrdinal > totalSegments) {
+            revert BTrk_InvalidOrdinalRange();
+        }
+        uint256 len = endOrdinal - startOrdinal + 1;
+        if (len > VIEW_BATCH_MAX) revert BTrk_ViewBatchTooLarge();
+        segmentIds_ = new bytes32[](len);
+        values = new uint256[](len);
+        recordedAtBlocks = new uint256[](len);
+        ordinalIndices = new uint256[](len);
+        sealedFlags = new bool[](len);
+        tags = new bytes32[](len);
+        weights = new uint64[](len);
+        trailIds = new bytes32[](len);
+        chainHashes = new bytes32[](len);
+        for (uint256 i = 0; i < len; ) {
+            bytes32 id = _segmentIds[startOrdinal + i - 1];
+            TrailSegment storage seg = _segments[id];
+            segmentIds_[i] = id;
+            values[i] = seg.value;
+            recordedAtBlocks[i] = seg.recordedAtBlock;
+            ordinalIndices[i] = seg.ordinalIndex;
+            sealedFlags[i] = seg.sealed;
+            tags[i] = _segmentTag[id];
+            weights[i] = _segmentWeight[id];
+            trailIds[i] = _segmentToTrail[id];
+            chainHashes[i] = _previousChainHash[id];
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // View: average value in ordinal range (sum / count; 0 if empty range)
+    // -------------------------------------------------------------------------
+    function averageValueInOrdinalRange(uint256 startOrdinal, uint256 endOrdinal) external view returns (uint256 avg) {
+        if (startOrdinal == 0 || endOrdinal < startOrdinal || endOrdinal > totalSegments) {
+            revert BTrk_InvalidOrdinalRange();
+        }
+        uint256 len = endOrdinal - startOrdinal + 1;
+        if (len > VIEW_BATCH_MAX) revert BTrk_ViewBatchTooLarge();
+        uint256 sum = 0;
