@@ -883,3 +883,62 @@ contract BleuTrk {
     // -------------------------------------------------------------------------
     // View: verify chain link for a segment (recompute and compare)
     // -------------------------------------------------------------------------
+    function verifyChainLink(bytes32 segmentId) external view returns (bool valid) {
+        TrailSegment storage seg = _segments[segmentId];
+        if (seg.recordedAtBlock == 0) return false;
+        bytes32 prev = seg.ordinalIndex == 1 ? bytes32(0) : _previousChainHash[_segmentIds[seg.ordinalIndex - 2]];
+        bytes32 expected = keccak256(
+            abi.encodePacked(prev, segmentId, seg.value, seg.ordinalIndex, seg.recordedAtBlock)
+        );
+        return _previousChainHash[segmentId] == expected;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: config extended (includes epoch and trail constants)
+    // -------------------------------------------------------------------------
+    function getConfigExtended() external view returns (
+        address trailhead_,
+        address relayer_,
+        uint256 deployBlock_,
+        uint256 maxSegmentValue_,
+        uint256 minGapBlocks_,
+        uint256 windowBlocks_,
+        bool latticeFrozen_,
+        uint256 currentEpochIndex_,
+        uint256 totalTrails_,
+        uint256 cumulativeValue_
+    ) {
+        return (
+            trailhead,
+            relayer,
+            deployBlock,
+            maxSegmentValue,
+            minGapBlocks,
+            windowBlocks,
+            latticeFrozen,
+            currentEpochIndex,
+            totalTrails,
+            cumulativeValue
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // View: segment stats in ordinal range (count, sum, min, max)
+    // -------------------------------------------------------------------------
+    function getStatsInOrdinalRange(uint256 startOrdinal, uint256 endOrdinal) external view returns (
+        uint256 count,
+        uint256 sum,
+        uint256 minVal,
+        uint256 maxVal
+    ) {
+        if (startOrdinal == 0 || endOrdinal < startOrdinal || endOrdinal > totalSegments) {
+            revert BTrk_InvalidOrdinalRange();
+        }
+        uint256 len = endOrdinal - startOrdinal + 1;
+        if (len > VIEW_BATCH_MAX) revert BTrk_ViewBatchTooLarge();
+        count = len;
+        minVal = type(uint256).max;
+        for (uint256 i = 0; i < len; ) {
+            uint256 v = _segments[_segmentIds[startOrdinal + i - 1]].value;
+            sum += v;
+            if (v < minVal) minVal = v;
