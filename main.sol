@@ -1591,3 +1591,39 @@ contract BleuTrk {
     // -------------------------------------------------------------------------
     // View: trail created block
     // -------------------------------------------------------------------------
+    function getTrailCreatedBlock(bytes32 trailId) external view returns (uint256) {
+        if (_trails[trailId].createdAtBlock == 0) revert BTrk_TrailNotFound();
+        return _trails[trailId].createdAtBlock;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: segment recorded block (convenience)
+    // -------------------------------------------------------------------------
+    function getSegmentBlock(bytes32 segmentId) external view returns (uint256) {
+        if (_segments[segmentId].recordedAtBlock == 0) revert BTrk_SegmentNotFound();
+        return _segments[segmentId].recordedAtBlock;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: segment value (convenience)
+    // -------------------------------------------------------------------------
+    function getSegmentValue(bytes32 segmentId) external view returns (uint256) {
+        if (_segments[segmentId].recordedAtBlock == 0) revert BTrk_SegmentNotFound();
+        return _segments[segmentId].value;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: segment sealed (convenience)
+    // -------------------------------------------------------------------------
+    function isSegmentSealed(bytes32 segmentId) external view returns (bool) {
+        return _segments[segmentId].sealed;
+    }
+
+    // -------------------------------------------------------------------------
+    // Internal: no transfer of trailhead (immutable); contract is non-upgradeable
+    // Placeholder for interface symmetry; always reverts.
+    // -------------------------------------------------------------------------
+    function renounceTrailhead() external pure {
+        revert BTrk_NotTrailhead();
+    }
+}
