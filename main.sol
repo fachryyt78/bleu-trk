@@ -1060,3 +1060,62 @@ contract BleuTrk {
         s.frozen = latticeFrozen;
     }
 
+    // -------------------------------------------------------------------------
+    // View: last N segment ids by ordinal (most recent first)
+    // -------------------------------------------------------------------------
+    function getRecentSegmentIds(uint256 n) external view returns (bytes32[] memory ids) {
+        if (n > VIEW_BATCH_MAX) revert BTrk_ViewBatchTooLarge();
+        if (n == 0 || totalSegments == 0) return new bytes32[](0);
+        uint256 start = totalSegments >= n ? totalSegments - n : 0;
+        uint256 len = totalSegments - start;
+        ids = new bytes32[](len);
+        for (uint256 i = 0; i < len; ) {
+            ids[i] = _segmentIds[start + i];
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // View: trail fingerprint (hash of trail id + segment count + total value + locked)
+    // -------------------------------------------------------------------------
+    function getTrailFingerprint(bytes32 trailId) external view returns (bytes32) {
+        TrailInfo storage tr = _trails[trailId];
+        if (tr.createdAtBlock == 0) revert BTrk_TrailNotFound();
+        return keccak256(
+            abi.encodePacked(
+                trailId,
+                tr.segmentCount,
+                tr.totalValue,
+                tr.locked,
+                tr.createdAtBlock
+            )
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // View: count of segments recorded in block range [fromBlock, toBlock]
+    // -------------------------------------------------------------------------
+    function segmentCountInBlockRange(uint256 fromBlock, uint256 toBlock) external view returns (uint256 count) {
+        if (fromBlock > toBlock) return 0;
+        for (uint256 i = 0; i < totalSegments; ) {
+            uint256 b = _segments[_segmentIds[i]].recordedAtBlock;
+            if (b >= fromBlock && b <= toBlock) count += 1;
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // View: batch check segment existence (returns same-length bool array)
+    // -------------------------------------------------------------------------
+    function hasSegments(bytes32[] calldata segmentIds) external view returns (bool[] memory exists) {
+        if (segmentIds.length > VIEW_BATCH_MAX) revert BTrk_ViewBatchTooLarge();
+        exists = new bool[](segmentIds.length);
+        for (uint256 i = 0; i < segmentIds.length; ) {
+            exists[i] = _segments[segmentIds[i]].recordedAtBlock != 0;
+            unchecked {
+                ++i;
+            }
