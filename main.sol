@@ -1178,3 +1178,62 @@ contract BleuTrk {
         uint256 len = endOrdinal - startOrdinal + 1;
         if (len > VIEW_BATCH_MAX) revert BTrk_ViewBatchTooLarge();
         uint256 sum = 0;
+        for (uint256 i = 0; i < len; ) {
+            sum += _segments[_segmentIds[startOrdinal + i - 1]].value;
+            unchecked {
+                ++i;
+            }
+        }
+        return sum / len;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: epoch index that contains the given segment count (last epoch at or before count)
+    // -------------------------------------------------------------------------
+    function getEpochIndexForSegmentCount(uint256 segmentCount) external view returns (uint256 epochIndex) {
+        if (currentEpochIndex == 0) return 0;
+        if (segmentCount >= _epochs[currentEpochIndex - 1].atSegmentCount) return currentEpochIndex - 1;
+        for (uint256 i = currentEpochIndex; i > 0; ) {
+            unchecked {
+                --i;
+            }
+            if (_epochs[i].atSegmentCount <= segmentCount) return i;
+        }
+        return 0;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: all epoch indices and segment counts (paginated)
+    // -------------------------------------------------------------------------
+    function getEpochSummary(uint256 offset, uint256 limit) external view returns (
+        uint256[] memory epochIndices,
+        uint256[] memory atSegmentCounts,
+        uint256[] memory atBlocks,
+        bytes32[] memory fingerprints
+    ) {
+        if (limit > VIEW_BATCH_MAX) revert BTrk_ViewBatchTooLarge();
+        if (offset >= currentEpochIndex) {
+            return (new uint256[](0), new uint256[](0), new uint256[](0), new bytes32[](0));
+        }
+        uint256 end = offset + limit;
+        if (end > currentEpochIndex) end = currentEpochIndex;
+        uint256 len = end - offset;
+        epochIndices = new uint256[](len);
+        atSegmentCounts = new uint256[](len);
+        atBlocks = new uint256[](len);
+        fingerprints = new bytes32[](len);
+        for (uint256 i = 0; i < len; ) {
+            EpochSnapshot storage e = _epochs[offset + i];
+            epochIndices[i] = offset + i;
+            atSegmentCounts[i] = e.atSegmentCount;
+            atBlocks[i] = e.atBlock;
+            fingerprints[i] = e.fingerprint;
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // View: total weighted value (sum over all segments of value * max(weight, 1))
+    // -------------------------------------------------------------------------
