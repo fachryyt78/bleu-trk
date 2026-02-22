@@ -1414,3 +1414,62 @@ contract BleuTrk {
         if (seg.ordinalIndex <= 1) return bytes32(0);
         return _segmentIds[seg.ordinalIndex - 2];
     }
+
+    // -------------------------------------------------------------------------
+    // View: block range that contains all segments in ordinal range
+    // -------------------------------------------------------------------------
+    function getBlockRangeForOrdinalRange(uint256 startOrdinal, uint256 endOrdinal)
+        external
+        view
+        returns (uint256 fromBlock, uint256 toBlock)
+    {
+        if (startOrdinal == 0 || endOrdinal < startOrdinal || endOrdinal > totalSegments) {
+            revert BTrk_InvalidOrdinalRange();
+        }
+        fromBlock = _segments[_segmentIds[startOrdinal - 1]].recordedAtBlock;
+        toBlock = fromBlock;
+        for (uint256 i = startOrdinal; i <= endOrdinal; ) {
+            uint256 b = _segments[_segmentIds[i - 1]].recordedAtBlock;
+            if (b < fromBlock) fromBlock = b;
+            if (b > toBlock) toBlock = b;
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // View: segment at ordinal (convenience)
+    // -------------------------------------------------------------------------
+    function getSegmentAtOrdinal(uint256 ordinalIndex) external view returns (
+        bytes32 segmentId,
+        uint256 value,
+        uint256 recordedAtBlock,
+        bool sealed
+    ) {
+        if (ordinalIndex == 0 || ordinalIndex > totalSegments) revert BTrk_SegmentNotFound();
+        bytes32 id = _segmentIds[ordinalIndex - 1];
+        TrailSegment storage seg = _segments[id];
+        return (id, seg.value, seg.recordedAtBlock, seg.sealed);
+    }
+
+    // -------------------------------------------------------------------------
+    // View: total value of all segments in a trail
+    // -------------------------------------------------------------------------
+    function getTrailTotalValue(bytes32 trailId) external view returns (uint256) {
+        if (_trails[trailId].createdAtBlock == 0) revert BTrk_TrailNotFound();
+        return _trails[trailId].totalValue;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: number of segments in a trail
+    // -------------------------------------------------------------------------
+    function getTrailSegmentCount(bytes32 trailId) external view returns (uint256) {
+        if (_trails[trailId].createdAtBlock == 0) revert BTrk_TrailNotFound();
+        return _trails[trailId].segmentCount;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: is lattice frozen
+    // -------------------------------------------------------------------------
+    function isLatticeFrozen() external view returns (bool) {
