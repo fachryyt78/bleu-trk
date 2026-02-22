@@ -1355,3 +1355,62 @@ contract BleuTrk {
     // View: whether any of the given segment ids exist
     // -------------------------------------------------------------------------
     function anySegmentExists(bytes32[] calldata segmentIds) external view returns (bool) {
+        if (segmentIds.length > VIEW_BATCH_MAX) revert BTrk_ViewBatchTooLarge();
+        for (uint256 i = 0; i < segmentIds.length; ) {
+            if (_segments[segmentIds[i]].recordedAtBlock != 0) return true;
+            unchecked {
+                ++i;
+            }
+        }
+        return false;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: recompute lattice fingerprint (current state)
+    // -------------------------------------------------------------------------
+    function recomputeLatticeFingerprint() external view returns (bytes32) {
+        return keccak256(
+            abi.encodePacked(
+                latticeDomain,
+                totalSegments,
+                sealedCount,
+                deployBlock,
+                deployTimestamp,
+                latticeFrozen,
+                cumulativeValue,
+                currentEpochIndex,
+                totalTrails
+            )
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // View: compare two segments by ordinal (returns -1, 0, 1 style: 0 = equal, 1 = a after b, 2 = b after a)
+    // -------------------------------------------------------------------------
+    function compareSegmentOrdinal(bytes32 segmentIdA, bytes32 segmentIdB) external view returns (uint8 result) {
+        TrailSegment storage a = _segments[segmentIdA];
+        TrailSegment storage b = _segments[segmentIdB];
+        if (a.recordedAtBlock == 0 || b.recordedAtBlock == 0) revert BTrk_SegmentNotFound();
+        if (a.ordinalIndex == b.ordinalIndex) return 0;
+        return a.ordinalIndex < b.ordinalIndex ? 2 : 1;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: next segment id after the given one (by ordinal); zero if none
+    // -------------------------------------------------------------------------
+    function getNextSegmentId(bytes32 segmentId) external view returns (bytes32 nextId) {
+        TrailSegment storage seg = _segments[segmentId];
+        if (seg.recordedAtBlock == 0) revert BTrk_SegmentNotFound();
+        if (seg.ordinalIndex >= totalSegments) return bytes32(0);
+        return _segmentIds[seg.ordinalIndex]; // ordinalIndex 1-based; next is at index ordinalIndex
+    }
+
+    // -------------------------------------------------------------------------
+    // View: previous segment id before the given one (by ordinal); zero if none
+    // -------------------------------------------------------------------------
+    function getPreviousSegmentId(bytes32 segmentId) external view returns (bytes32 prevId) {
+        TrailSegment storage seg = _segments[segmentId];
+        if (seg.recordedAtBlock == 0) revert BTrk_SegmentNotFound();
+        if (seg.ordinalIndex <= 1) return bytes32(0);
+        return _segmentIds[seg.ordinalIndex - 2];
+    }
