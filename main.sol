@@ -1001,3 +1001,62 @@ contract BleuTrk {
 
     // -------------------------------------------------------------------------
     // View: batch proof payloads for ordinal range
+    // -------------------------------------------------------------------------
+    function getProofPayloadsInOrdinalRange(uint256 startOrdinal, uint256 endOrdinal) external view returns (
+        bytes32[] memory segmentIds_,
+        uint256[] memory values,
+        uint256[] memory ordinalIndices,
+        uint256[] memory recordedAtBlocks,
+        bytes32[] memory chainHashes
+    ) {
+        if (startOrdinal == 0 || endOrdinal < startOrdinal || endOrdinal > totalSegments) {
+            revert BTrk_InvalidOrdinalRange();
+        }
+        uint256 len = endOrdinal - startOrdinal + 1;
+        if (len > VIEW_BATCH_MAX) revert BTrk_ViewBatchTooLarge();
+        segmentIds_ = new bytes32[](len);
+        values = new uint256[](len);
+        ordinalIndices = new uint256[](len);
+        recordedAtBlocks = new uint256[](len);
+        chainHashes = new bytes32[](len);
+        for (uint256 i = 0; i < len; ) {
+            bytes32 id = _segmentIds[startOrdinal + i - 1];
+            TrailSegment storage seg = _segments[id];
+            segmentIds_[i] = id;
+            values[i] = seg.value;
+            ordinalIndices[i] = seg.ordinalIndex;
+            recordedAtBlocks[i] = seg.recordedAtBlock;
+            chainHashes[i] = _previousChainHash[id];
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // View: lattice summary (single struct for dashboards)
+    // -------------------------------------------------------------------------
+    struct LatticeSummary {
+        bytes32 domain;
+        uint256 totalSegments;
+        uint256 sealedCount;
+        uint256 cumulativeValue;
+        uint256 totalTrails;
+        uint256 currentEpochIndex;
+        uint256 deployBlock;
+        uint256 lastRecordedBlock_;
+        bool frozen;
+    }
+
+    function getLatticeSummary() external view returns (LatticeSummary memory s) {
+        s.domain = latticeDomain;
+        s.totalSegments = totalSegments;
+        s.sealedCount = sealedCount;
+        s.cumulativeValue = cumulativeValue;
+        s.totalTrails = totalTrails;
+        s.currentEpochIndex = currentEpochIndex;
+        s.deployBlock = deployBlock;
+        s.lastRecordedBlock_ = totalSegments == 0 ? 0 : _segments[_segmentIds[totalSegments - 1]].recordedAtBlock;
+        s.frozen = latticeFrozen;
+    }
+
