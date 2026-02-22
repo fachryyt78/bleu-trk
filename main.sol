@@ -1296,3 +1296,62 @@ contract BleuTrk {
             unchecked {
                 ++i;
             }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // View: trail ids that contain the given segment
+    // -------------------------------------------------------------------------
+    function getTrailIdsContainingSegment(bytes32 segmentId) external view returns (bytes32[] memory trailIds_) {
+        bytes32 t = _segmentToTrail[segmentId];
+        if (t == bytes32(0)) return new bytes32[](0);
+        trailIds_ = new bytes32[](1);
+        trailIds_[0] = t;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: segment count for each trail (batch by trail ids)
+    // -------------------------------------------------------------------------
+    function getTrailSegmentCounts(bytes32[] calldata trailIds_) external view returns (uint256[] memory counts) {
+        if (trailIds_.length > VIEW_BATCH_MAX) revert BTrk_ViewBatchTooLarge();
+        counts = new uint256[](trailIds_.length);
+        for (uint256 i = 0; i < trailIds_.length; ) {
+            counts[i] = _trails[trailIds_[i]].segmentCount;
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // View: total value for each trail (batch)
+    // -------------------------------------------------------------------------
+    function getTrailTotalValues(bytes32[] calldata trailIds_) external view returns (uint256[] memory totals) {
+        if (trailIds_.length > VIEW_BATCH_MAX) revert BTrk_ViewBatchTooLarge();
+        totals = new uint256[](trailIds_.length);
+        for (uint256 i = 0; i < trailIds_.length; ) {
+            totals[i] = _trails[trailIds_[i]].totalValue;
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // View: whether all given segment ids exist
+    // -------------------------------------------------------------------------
+    function allSegmentsExist(bytes32[] calldata segmentIds) external view returns (bool) {
+        if (segmentIds.length > VIEW_BATCH_MAX) revert BTrk_ViewBatchTooLarge();
+        for (uint256 i = 0; i < segmentIds.length; ) {
+            if (_segments[segmentIds[i]].recordedAtBlock == 0) return false;
+            unchecked {
+                ++i;
+            }
+        }
+        return true;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: whether any of the given segment ids exist
+    // -------------------------------------------------------------------------
+    function anySegmentExists(bytes32[] calldata segmentIds) external view returns (bool) {
