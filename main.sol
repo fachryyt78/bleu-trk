@@ -1237,3 +1237,62 @@ contract BleuTrk {
     // -------------------------------------------------------------------------
     // View: total weighted value (sum over all segments of value * max(weight, 1))
     // -------------------------------------------------------------------------
+    function getTotalWeightedValue() external view returns (uint256 total) {
+        for (uint256 i = 0; i < totalSegments; ) {
+            bytes32 id = _segmentIds[i];
+            uint64 w = _segmentWeight[id];
+            total += _segments[id].value * (w == 0 ? 1 : uint256(w));
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // View: sealed segment ids in ordinal range
+    // -------------------------------------------------------------------------
+    function getSealedSegmentIdsInOrdinalRange(uint256 startOrdinal, uint256 endOrdinal)
+        external
+        view
+        returns (bytes32[] memory ids)
+    {
+        if (startOrdinal == 0 || endOrdinal < startOrdinal || endOrdinal > totalSegments) {
+            revert BTrk_InvalidOrdinalRange();
+        }
+        uint256 len = endOrdinal - startOrdinal + 1;
+        if (len > VIEW_BATCH_MAX) revert BTrk_ViewBatchTooLarge();
+        uint256 sealedInRange = 0;
+        for (uint256 i = 0; i < len; ) {
+            if (_segments[_segmentIds[startOrdinal + i - 1]].sealed) sealedInRange += 1;
+            unchecked {
+                ++i;
+            }
+        }
+        ids = new bytes32[](sealedInRange);
+        uint256 pos = 0;
+        for (uint256 j = 0; j < len; ) {
+            bytes32 id = _segmentIds[startOrdinal + j - 1];
+            if (_segments[id].sealed) {
+                ids[pos] = id;
+                pos += 1;
+            }
+            unchecked {
+                ++j;
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // View: number of sealed segments in ordinal range
+    // -------------------------------------------------------------------------
+    function sealedCountInOrdinalRange(uint256 startOrdinal, uint256 endOrdinal) external view returns (uint256 count) {
+        if (startOrdinal == 0 || endOrdinal < startOrdinal || endOrdinal > totalSegments) {
+            revert BTrk_InvalidOrdinalRange();
+        }
+        uint256 len = endOrdinal - startOrdinal + 1;
+        if (len > VIEW_BATCH_MAX) revert BTrk_ViewBatchTooLarge();
+        for (uint256 i = 0; i < len; ) {
+            if (_segments[_segmentIds[startOrdinal + i - 1]].sealed) count += 1;
+            unchecked {
+                ++i;
+            }
