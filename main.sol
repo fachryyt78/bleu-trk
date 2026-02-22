@@ -942,3 +942,62 @@ contract BleuTrk {
             uint256 v = _segments[_segmentIds[startOrdinal + i - 1]].value;
             sum += v;
             if (v < minVal) minVal = v;
+            if (v > maxVal) maxVal = v;
+            unchecked {
+                ++i;
+            }
+        }
+        if (minVal == type(uint256).max) minVal = 0;
+    }
+
+    // -------------------------------------------------------------------------
+    // View: segments by tag (returns ids that have the given tag; paginated scan)
+    // -------------------------------------------------------------------------
+    function getSegmentIdsByTag(bytes32 tag, uint256 maxResults) external view returns (bytes32[] memory ids) {
+        if (maxResults > VIEW_BATCH_MAX) revert BTrk_ViewBatchTooLarge();
+        bytes32[] memory temp = new bytes32[](maxResults);
+        uint256 count = 0;
+        for (uint256 i = 0; i < totalSegments && count < maxResults; ) {
+            bytes32 id = _segmentIds[i];
+            if (_segmentTag[id] == tag) {
+                temp[count] = id;
+                count += 1;
+            }
+            unchecked {
+                ++i;
+            }
+        }
+        ids = new bytes32[](count);
+        for (uint256 j = 0; j < count; ) {
+            ids[j] = temp[j];
+            unchecked {
+                ++j;
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // View: proof payload for segment (for off-chain verification)
+    // -------------------------------------------------------------------------
+    function getProofPayload(bytes32 segmentId) external view returns (
+        bytes32 segmentId_,
+        uint256 value,
+        uint256 ordinalIndex,
+        uint256 recordedAtBlock,
+        bytes32 chainHash,
+        bytes32 latticeDomain_
+    ) {
+        TrailSegment storage seg = _segments[segmentId];
+        if (seg.recordedAtBlock == 0) revert BTrk_SegmentNotFound();
+        return (
+            segmentId,
+            seg.value,
+            seg.ordinalIndex,
+            seg.recordedAtBlock,
+            _previousChainHash[segmentId],
+            latticeDomain
+        );
+    }
+
+    // -------------------------------------------------------------------------
+    // View: batch proof payloads for ordinal range
